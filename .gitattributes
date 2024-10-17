@@ -1,2 +1,4 @@
 docs/violinplots_row_stats_pa.html filter=lfs diff=lfs merge=lfs -text
 Notebooks/iframe_figures/*.html filter=lfs diff=lfs merge=lfs -text
+Notebooks/component_loadings_abundance_rows.csv filter=lfs diff=lfs merge=lfs -text
+Notebooks/component_loadings_rows.csv filter=lfs diff=lfs merge=lfs -text
