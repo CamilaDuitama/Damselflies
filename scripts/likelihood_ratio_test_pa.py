@@ -89,12 +89,18 @@ def compute_likelihood_ratio_test_bernoulli(row, groups):
         group_labels.extend([label]*len(values))
     y = np.array(y)
     group_labels = np.array(group_labels)
+
     # Unique groups and their probabilities
     unique_groups = np.unique(group_labels)
     prob_hat = [np.mean(y[group_labels == group]) for group in unique_groups]
     
+    # Handle cases where all observations in a group are the same
+    epsilon = 1e-10
+    prob_hat = [max(min(p, 1-epsilon), epsilon) for p in prob_hat]
+    
     # Null probability and log-likelihood
     prob_null = np.mean(y)
+    prob_null = max(min(prob_null, 1-epsilon), epsilon)
     llf_null = np.sum(bernoulli.logpmf(y, prob_null))
 
     # Full Log-likelihood
@@ -102,6 +108,8 @@ def compute_likelihood_ratio_test_bernoulli(row, groups):
 
     # LR statistic and p-value
     lr_statistic = -2 * (llf_null - llf_full)
+    
+    # Use binomial test for p-value calculation
     p_value = binomtest(sum(y), len(y), prob_null, alternative='two-sided').pvalue
 
     # Effect size as absolute difference of success probabilities

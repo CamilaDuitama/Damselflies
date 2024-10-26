@@ -502,8 +502,6 @@ Notebooks/kruskal_wallis_results_abundance_matrix.csv filter=lfs diff=lfs merge=
 Notebooks/abundance_unitig_matrix_02_filtered_row_statistics.csv filter=lfs diff=lfs merge=lfs -text
 Notebooks/pa_unitig_matrix_02_filtered_row_statistics.csv filter=lfs diff=lfs merge=lfs -text
 Notebooks/component_loadings_rows_pa.csv filter=lfs diff=lfs merge=lfs -text
-pca/component_loadings_abundance_rows.csv filter=lfs diff=lfs merge=lfs -text
-pca/component_loadings_unitigs_pa.csv filter=lfs diff=lfs merge=lfs -text
 .git/objects/86/d2530c333e113469c3a6a0a738582fe292d241 filter=lfs diff=lfs merge=lfs -text
 .git/objects/49/a46bfab43b452a568e57b59ae594901493f534 filter=lfs diff=lfs merge=lfs -text
 .git/objects/b0/05093bdbea124dbec6eb24e5b9f759773eb33d filter=lfs diff=lfs merge=lfs -text
@@ -530,5 +528,4 @@ ref_genome/haplotype_A/ncbi_dataset.zip filter=lfs diff=lfs merge=lfs -text
 ref_genome/haplotype_A/ncbi_dataset/data/GCA_921293115.1/GCA_921293115.1_ioIscEleg1.1_alternate_haplotype_genomic.fna filter=lfs diff=lfs merge=lfs -text
 ref_genome/haplotype_O_DToL/ncbi_dataset/data/GCF_921293095.1/GCF_921293095.1_ioIscEleg1.1_genomic.fna filter=lfs diff=lfs merge=lfs -text
 ref_genome/haplotype_O_DToL/ncbi_dataset.zip filter=lfs diff=lfs merge=lfs -text
-docs/adjusted_p_values_analysis_pa.html filter=lfs diff=lfs merge=lfs -text
 hypothesis_tests/likelihood_ratio/AvsO.csv filter=lfs diff=lfs merge=lfs -text
