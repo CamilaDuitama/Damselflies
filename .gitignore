@@ -1,4 +1,6 @@
 unitig_matrix*
+filtered_matrices/*
+ref_genome/*
 *row_statistics.csv
 unitigs/
 Notebooks/kruskal*
