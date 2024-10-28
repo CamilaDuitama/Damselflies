@@ -1,0 +1,2 @@
+file                                                        format  type  num_seqs    sum_len  min_len  avg_len  max_len
+significant_unitigs_0.2_filter_kruskall_wallis_pa.fasta.gz  FASTA   DNA     39,524  2,632,369       61     66.6      352
