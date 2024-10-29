@@ -1,11 +1,12 @@
 import os
+import sys
 import argparse
 import pandas as pd
 import logging
 from datetime import datetime
 import dask.dataframe as dd
 from dask.distributed import Client, LocalCluster
-from scipy.stats import bernoulli, binomtest, kruskal, false_discovery_control
+from scipy.stats import bernoulli, binomtest, kruskal, false_discovery_control, chi2_contingency
 import numpy as np
 from scipy import stats
 from collections import defaultdict
@@ -73,6 +74,56 @@ def map_runs_to_morph(metadata):
         morph_groups[morph].append(run)
     logging.info("Runs mapped to morph groups.")
     return morph_groups
+
+def compute_chi_square_test(row, groups):
+    """
+    Compute Chi-square test for a given row of binary data with two groups.
+
+    Args:
+        row (pandas.Series): A row of binary data (values: 0 or 1) from a DataFrame.
+        groups (dict): A dictionary mapping group names to the corresponding column indices.
+
+    Returns:
+        pandas.Series: A series containing the chi-square statistic, p-value, and effect size (Cramer's V).
+    """
+    if len(groups) != 2:
+        raise ValueError("This function is designed for exactly two groups.")
+
+    group_data = {group: row[samples].dropna().values for group, samples in groups.items() if all(sample in row.index for sample in samples)}
+  
+    # Check if we have data for both groups
+    if len(group_data) < 2:
+        return pd.Series({'chi2_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
+
+    # Check if both groups have data
+    if not all(len(data) > 0 for data in group_data.values()):
+        return pd.Series({'chi2_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
+
+    # Prepare contingency table with Yates' correction
+    contingency_table = np.array([
+        [np.sum(group_data[group] == 0) + 0.5 for group in groups],
+        [np.sum(group_data[group] == 1) + 0.5 for group in groups]
+    ])
+
+    # Check if all numbers are identical across both groups
+    if np.all(contingency_table == contingency_table[0][0]):
+        return pd.Series({'chi2_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
+
+    try:
+        # Compute Chi-square test
+        chi2_statistic, p_value, dof, expected = chi2_contingency(contingency_table)
+
+        # Compute effect size (Cramer's V)
+        n = np.sum(contingency_table)
+        min_dim = min(contingency_table.shape) - 1
+        effect_size = np.sqrt(chi2_statistic / (n * min_dim))
+
+    except ValueError as e:
+        logging.warning(f"ValueError in Chi-square test: {e}")
+        return pd.Series({'chi2_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
+
+    return pd.Series({'chi2_statistic': chi2_statistic, 'p_value': p_value, 'effect_size': effect_size})
+
 
 def compute_likelihood_ratio_test_bernoulli(row, groups):
     """
@@ -250,6 +301,13 @@ def perform_analysis(df, morph_groups, comparison, test_type, binarization_thres
                 'effect_size': np.float64
             }, index=['h_statistic', 'p_value', 'effect_size'])
             results = df_binarized.apply(lambda row: compute_kruskal_wallis_test(row, groups), axis=1, meta=meta)
+        elif test_type == 'chi2':
+            meta = pd.Series({
+                'chi2_statistic': np.float64,
+                'p_value': np.float64,
+                'effect_size': np.float64
+            }, index=['chi2_statistic', 'p_value', 'effect_size'])
+            results = df_binarized.apply(lambda row: compute_chi_square_test(row, groups), axis=1, meta=meta)
         else:
             raise ValueError("Invalid test type specified.")
     except Exception as e:
@@ -299,6 +357,17 @@ def main(args):
     args (Namespace): Argument namespace containing command line arguments.
     """
     logging.info("Starting main function...")
+
+    # Check if output file already exists
+    formatted_comparison = args.comparison.strip().replace(' ', '_').replace('/', '').replace('\\', '')
+    filename = f"{formatted_comparison}_{args.test_type}_bin_thresh_{args.bin_thresh:.2f}.csv"
+    output_file_path = os.path.join(args.output_dir, filename)
+
+    if os.path.exists(output_file_path):
+        logging.error(f"Error: Output file {output_file_path} already exists. Exiting to prevent overwriting.")
+        sys.exit(1)  # Exit with error code 1
+
+    # Proceed with the rest of the function if the file doesn't exist
     client = setup_dask_client(args.threads, args.memory)
     metadata = load_metadata(METADATA_FILE)
     morph_groups = map_runs_to_morph(metadata)
@@ -328,10 +397,6 @@ def main(args):
 
     if results is not None:
         os.makedirs(args.output_dir, exist_ok=True)
-        formatted_comparison = args.comparison.strip().replace(' ', '_').replace('/', '').replace('\\', '')
-        filename = f"{formatted_comparison}_{args.test_type}_bin_thresh_{args.bin_thresh:.2f}.csv"
-        output_file_path = os.path.join(args.output_dir, filename)
-
         logging.info(f"Attempting to save results to: {output_file_path}")
 
         try:
@@ -352,8 +417,8 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--comparison", required=True,
                     help="Type of comparison to perform, formatted as 'Group1vsGroup2' (e.g., 'AvsB') or 'overall'")
     parser.add_argument("-o", "--output_dir", required=True, help="Output directory to save the results")
-    parser.add_argument("--test_type", choices=['lrt', 'kw'], default='lrt',
-                        help="Type of statistical test to perform. 'lrt' for Likelihood Ratio Test, 'kw' for Kruskal-Wallis test")
+    parser.add_argument("--test_type", choices=['lrt', 'kw', 'chi2'], default='lrt',
+                        help="Type of statistical test to perform. 'lrt' for Likelihood Ratio Test, 'kw' for Kruskal-Wallis test, 'chi2' for Chi-square test")
     parser.add_argument("--bin_thresh", type=float, default=0,
                         help="Threshold for binarization (between 0 and 1). Values greater than this will be set to 1, else 0. Default is 0.")
     args = parser.parse_args()
