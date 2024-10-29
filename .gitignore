@@ -209,6 +209,15 @@ filtered_matrices/0.2/unitigs.filter.02.csv
 ./.git/objects/49/a46bfab43b452a568e57b59ae594901493f534
 ./.git/objects/86/d2530c333e113469c3a6a0a738582fe292d241
 ./.git/objects/b0/05093bdbea124dbec6eb24e5b9f759773eb33d
+hypothesis_tests/chi2/filter_0.1/bin_thr_0.8/AvsI_chi2_bin_thresh_0.80.csv
+hypothesis_tests/chi2/filter_0.1/bin_thr_0.8/AvsO_chi2_bin_thresh_0.80.csv
+hypothesis_tests/chi2/filter_0.1/bin_thr_0/AvsI_chi2_bin_thresh_0.00.csv
+hypothesis_tests/chi2/filter_0.1/bin_thr_0/AvsO_chi2_bin_thresh_0.00.csv
+hypothesis_tests/chi2/filter_0.1/bin_thr_0/OvsI_chi2_bin_thresh_0.00.csv
+hypothesis_tests/chi2/filter_0.2/bin_thr_0.8/AvsI_chi2_bin_thresh_0.80.csv
+hypothesis_tests/chi2/filter_0.2/bin_thr_0.8/AvsO_chi2_bin_thresh_0.80.csv
+hypothesis_tests/chi2/filter_0.2/bin_thr_0.8/OvsI_chi2_bin_thresh_0.80.csv
+hypothesis_tests/chi2/filter_0.2/bin_thr_0/AvsI_chi2_bin_thresh_0.00.csv
 hypothesis_tests/kruskal_wallis/filter_0.1/bin_thr_0/AvsI_kw_bin_thresh_0.00.csv
 hypothesis_tests/kruskal_wallis/filter_0.1/bin_thr_0/AvsO_kw_bin_thresh_0.00.csv
 hypothesis_tests/kruskal_wallis/filter_0.1/bin_thr_0/OvsI_kw_bin_thresh_0.00.csv
