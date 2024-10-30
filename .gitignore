@@ -211,6 +211,7 @@ filtered_matrices/0.2/unitigs.filter.02.csv
 ./.git/objects/b0/05093bdbea124dbec6eb24e5b9f759773eb33d
 hypothesis_tests/chi2/filter_0.1/bin_thr_0.8/AvsI_chi2_bin_thresh_0.80.csv
 hypothesis_tests/chi2/filter_0.1/bin_thr_0.8/AvsO_chi2_bin_thresh_0.80.csv
+hypothesis_tests/chi2/filter_0.1/bin_thr_0.8/OvsI_chi2_bin_thresh_0.80.csv
 hypothesis_tests/chi2/filter_0.1/bin_thr_0/AvsI_chi2_bin_thresh_0.00.csv
 hypothesis_tests/chi2/filter_0.1/bin_thr_0/AvsO_chi2_bin_thresh_0.00.csv
 hypothesis_tests/chi2/filter_0.1/bin_thr_0/OvsI_chi2_bin_thresh_0.00.csv
@@ -218,6 +219,8 @@ hypothesis_tests/chi2/filter_0.2/bin_thr_0.8/AvsI_chi2_bin_thresh_0.80.csv
 hypothesis_tests/chi2/filter_0.2/bin_thr_0.8/AvsO_chi2_bin_thresh_0.80.csv
 hypothesis_tests/chi2/filter_0.2/bin_thr_0.8/OvsI_chi2_bin_thresh_0.80.csv
 hypothesis_tests/chi2/filter_0.2/bin_thr_0/AvsI_chi2_bin_thresh_0.00.csv
+hypothesis_tests/chi2/filter_0.2/bin_thr_0/AvsO_chi2_bin_thresh_0.00.csv
+hypothesis_tests/chi2/filter_0.2/bin_thr_0/OvsI_chi2_bin_thresh_0.00.csv
 hypothesis_tests/kruskal_wallis/filter_0.1/bin_thr_0/AvsI_kw_bin_thresh_0.00.csv
 hypothesis_tests/kruskal_wallis/filter_0.1/bin_thr_0/AvsO_kw_bin_thresh_0.00.csv
 hypothesis_tests/kruskal_wallis/filter_0.1/bin_thr_0/OvsI_kw_bin_thresh_0.00.csv
@@ -251,6 +254,7 @@ Notebooks/pca_result_unitigs_pa_centered.csv
 ./pca/component_loadings_abundance_rows.csv
 ./pca/component_loadings_unitigs_pa.csv
 ref_genome/*
+ref_genome/Amorph_assembly/Afem_1354_ragtag.fasta.gz
 ./ref_genome/haplotype_A/ncbi_dataset/data/GCA_921293115.1/GCA_921293115.1_ioIscEleg1.1_alternate_haplotype_genomic.fna
 ref_genome/haplotype_A/ncbi_dataset/data/GCA_921293115.1/GCA_921293115.1_ioIscEleg1.1_alternate_haplotype_genomic.fna
 ./ref_genome/haplotype_A/ncbi_dataset.zip
@@ -259,6 +263,7 @@ ref_genome/haplotype_A/ncbi_dataset.zip
 ref_genome/haplotype_O_DToL/ncbi_dataset/data/GCF_921293095.1/GCF_921293095.1_ioIscEleg1.1_genomic.fna
 ./ref_genome/haplotype_O_DToL/ncbi_dataset.zip
 ref_genome/haplotype_O_DToL/ncbi_dataset.zip
+ref_genome/Imorph_assembly/Ifem_1049_ragtag.fa.gz
 *row_statistics.csv
 unitig_matrix*
 ./unitig_matrix_abundance/A.mat
