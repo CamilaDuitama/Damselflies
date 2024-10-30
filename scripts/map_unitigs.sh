@@ -59,6 +59,46 @@ THREADS=$(nproc)
 # Store the base directory
 BASE_DIR=$(pwd)
 
+# Function to convert BAM to BLAST-like format
+convert_bam_to_blast() {
+    local bam_file=$1
+    local output_file=$2
+
+    samtools view "$bam_file" | awk -v OFS='\t' '
+    {
+        qname=$1;  # Query name (kmer ID)
+        flag=$2;
+        rname=$3;  # Reference sequence name
+        pos=$4;    # 1-based leftmost mapping position
+        mapq=$5;   # Mapping quality
+        cigar=$6;
+        seq=$10;   # Sequence
+
+        # Calculate alignment length from CIGAR string
+        aln_len=0;
+        while (match(cigar, /[0-9]+[MIDNSHP]/)) {
+            num = substr(cigar, RSTART, RLENGTH-1) + 0;
+            op = substr(cigar, RSTART+RLENGTH-1, 1);
+            if (op ~ /[MID]/) aln_len += num;
+            cigar = substr(cigar, RSTART+RLENGTH);
+        }
+
+        # Calculate end position
+        end = pos + aln_len - 1;
+
+        # Placeholder values
+        pident = 100;  # Percent identity
+        mismatch = 0;
+        gapopen = 0;
+        qstart = 1;
+        qend = length(seq);
+        evalue = "1e-10";
+        bitscore = 60;
+
+        print qname, rname, pident, aln_len, mismatch, gapopen, qstart, qend, pos, end, evalue, bitscore, rname, pos;
+    }' > "$output_file"
+}
+
 # Function to process each file
 process_file() {
     local folder=$1
@@ -94,6 +134,10 @@ process_file() {
 
     echo "Indexing BAM file..."
     samtools index -@ $THREADS "$output_dir/${base}_mapped_sorted.bam"
+
+    # Convert BAM to BLAST-like format
+    echo "Converting BAM to BLAST-like format..."
+    convert_bam_to_blast "$output_dir/${base}_mapped_sorted.bam" "$output_dir/${base}_blast_like.tsv"
 
     # Count total reads
     echo "Counting total reads..."

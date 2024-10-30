@@ -3,16 +3,18 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 import numpy as np
+import os
+import argparse
 
-# Function to show progress
-def show_progress(current, total):
-    percent = (current / total) * 100
-    print(f"Progress: {percent:.2f}%")
+# Fixed file paths
+RESEQ_FILE = "Zenodo/reseq_coverage_norepeat_500_window.bed"
+NANO_FILE = "Zenodo/Ifem_nano_coverage_norepeat_500_window.bed"
+POPMAP_FILE = "Zenodo/SwD_popmap"
 
 # Fig. 3a: Unitigs mapped to I reference
-def plot_unitigs_I():
-    print("Processing unitigs mapped to I reference...")
-    blast_outI = pd.read_csv("OvAI_kmers.fa_v_Ifem_1049_ragtag_table.tsv", sep="\t", header=None, usecols=[1,8])
+def plot_unitigs_I(blast_file):
+    print(f"Processing unitigs mapped to I reference from {blast_file}...")
+    blast_outI = pd.read_csv(blast_file, sep="\t", header=None, usecols=[1,8])
     blast_outI.columns = ["contig", "start"]
     
     unloc_2 = blast_outI[blast_outI["contig"] == "SUPER_13_unloc_2_RagTag"]
@@ -31,10 +33,10 @@ def plot_unitigs_I():
 # Fig. 3c: Read-depth coverage on A
 def plot_read_depth_A():
     print("Processing read-depth coverage on A...")
-    cov = pd.read_csv("reseq_coverage_norepeat_500_window.bed", sep="\t", header=None)
+    cov = pd.read_csv(RESEQ_FILE, sep="\t", header=None)
     cov.columns = ["contig", "start", "end", "coverage"]
     
-    popmap = pd.read_csv("SwD_popmap", sep="\t")
+    popmap = pd.read_csv(POPMAP_FILE, sep="\t")
     
     cov = cov[cov["contig"].isin(["1776_1", "28_1"])]
     
@@ -47,7 +49,7 @@ def plot_read_depth_A():
     
     cov["relcov"] = cov.apply(lambda row: row["coverage"] / S1.loc[S1["sample"] == row["sample"], "avg"].values[0], axis=1)
     
-    ncov = pd.read_csv("nano_coverage_norepeat_500_window.bed", sep="\t", header=None)
+    ncov = pd.read_csv(NANO_FILE, sep="\t", header=None)
     ncov.columns = ["contig", "start", "end", "coverage"]
     
     ncov = ncov[ncov["end"] < 15000000]
@@ -85,23 +87,28 @@ def plot_read_depth_A():
     return fig
 
 # Main execution
-def main():
-    total_steps = 2
-    current_step = 0
+def main(blast_file):
+    # Create docs directory if it doesn't exist
+    os.makedirs("docs", exist_ok=True)
+    
+    # Extract the base name of the blast file for naming the output
+    blast_base = os.path.splitext(os.path.basename(blast_file))[0]
     
     # Fig. 3a
-    fig_3a = plot_unitigs_I()
-    fig_3a.write_html("fig_3a_unitigs_I.html")
-    current_step += 1
-    show_progress(current_step, total_steps)
+    fig_3a = plot_unitigs_I(blast_file)
+    fig_3a.write_html(f"docs/fig_3a_unitigs_{blast_base}.html")
+    print(f"Figure 3a has been generated and saved as docs/fig_3a_unitigs_{blast_base}.html")
     
     # Fig. 3c
     fig_3c = plot_read_depth_A()
-    fig_3c.write_html("fig_3c_read_depth_A.html")
-    current_step += 1
-    show_progress(current_step, total_steps)
+    fig_3c.write_html("docs/fig_3c_read_depth_A.html")
+    print("Figure 3c has been generated and saved as docs/fig_3c_read_depth_A.html")
     
-    print("All plots have been generated and saved as HTML files.")
+    print("All plots have been generated and saved as HTML files in the docs folder.")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Generate plots for unitig mapping and read depth coverage.")
+    parser.add_argument("blast_file", help="Path to the BLAST-like output file")
+    args = parser.parse_args()
+
+    main(args.blast_file)
