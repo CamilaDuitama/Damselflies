@@ -53,6 +53,9 @@ if [ ! -f "$REF_GENOME" ]; then
     exit 1
 fi
 
+# Get the reference genome name without extension
+REF_GENOME_NAME=$(basename "$REF_GENOME" | sed 's/\.[^.]*$//')
+
 # Get the number of available CPU cores
 THREADS=$(nproc)
 
@@ -109,7 +112,7 @@ process_file() {
     cd "$folder"
 
     # Create output directory for BAM and BAI files
-    local output_dir="mapping_output"
+    local output_dir="mapping_output_${REF_GENOME_NAME}"
     mkdir -p "$output_dir"
 
     local fasta="significant_unitigs_${comparison}.fasta.gz"
@@ -192,4 +195,4 @@ for folder in "${folders[@]}"; do
     done
 done
 
-echo "Processing complete. Results are stored in mapping_output/mapping_results.txt in each processed folder."
+echo "Processing complete. Results are stored in mapping_output_${REF_GENOME_NAME}/mapping_results.txt in each processed folder."
