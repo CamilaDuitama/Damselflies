@@ -12,21 +12,69 @@ NANO_FILE = "Zenodo/Ifem_nano_coverage_norepeat_500_window.bed"
 POPMAP_FILE = "Zenodo/SwD_popmap"
 
 # Fig. 3a: Unitigs mapped to reference
-def plot_unitigs(blast_file, assembly_type, comparison):
-    print(f"Processing unitigs mapped to {assembly_type} reference for {comparison}...")
-    blast_out = pd.read_csv(blast_file, sep="\t", header=None, usecols=[1,8])
-    blast_out.columns = ["contig", "start"]
+def plot_unitigs(input_folder, assembly_type):
+    print(f"Processing unitigs mapped to {assembly_type} reference...")
     
-    unloc_2 = blast_out[blast_out["contig"] == "SUPER_13_unloc_2_RagTag"]
-    unloc_2["comp"] = comparison
+    blast_files = {
+        'AvI': os.path.join(input_folder, f"significant_unitigs_AvsI_blast_like.tsv"),
+        'AvO': os.path.join(input_folder, f"significant_unitigs_AvsO_blast_like.tsv"),
+        'IvO': os.path.join(input_folder, f"significant_unitigs_OvsI_blast_like.tsv")
+    }
     
-    percentage = len(unloc_2) / len(blast_out) * 100
-    print(f"Percentage of significant unitigs mapping to SUPER_13_unloc_2_RagTag: {percentage:.2f}%")
+    data = []
+    for comp, file in blast_files.items():
+        df = pd.read_csv(file, sep="\t", header=None, usecols=[1,8])
+        df.columns = ["contig", "start"]
+        df['comp'] = comp
+        data.append(df)
     
-    fig = px.histogram(unloc_2, x=unloc_2["start"]/1000000, nbins=36, 
-                       labels={"x": "Position (Mb)", "y": "Unitig count"},
-                       title=f"Unitigs mapped to {assembly_type} reference for {comparison}")
-    fig.update_layout(showlegend=False, xaxis_range=[3.496, 3.78], yaxis_range=[0, 4500])
+    blast_out = pd.concat(data)
+    
+    if assembly_type.startswith('A'):
+        contig_name = "1776_1"
+    elif assembly_type.startswith('I'):
+        contig_name = "SUPER_13_unloc_2_RagTag"
+    else:
+        raise ValueError(f"Unknown assembly type: {assembly_type}")
+    
+    contig_data = blast_out[blast_out["contig"] == contig_name]
+    
+    percentage = len(contig_data) / len(blast_out) * 100
+    print(f"Percentage of significant unitigs mapping to {contig_name}: {percentage:.2f}%")
+    
+    fig = go.Figure()
+    colors = px.colors.qualitative.Set1[:3]
+    
+    for i, comp in enumerate(['AvO', 'AvI', 'AIvO']):
+        comp_data = contig_data[contig_data['comp'] == comp]
+        if assembly_type.startswith('A'):
+            x = (comp_data['start'].max() - comp_data['start']) / 1000000
+        else:
+            x = comp_data['start'] / 1000000
+        
+        fig.add_trace(go.Histogram(
+            x=x,
+            name=comp,
+            marker_color=colors[i],
+            opacity=0.7,
+            nbinsx=60 if assembly_type.startswith('A') else 36
+        ))
+    
+    fig.update_layout(
+        barmode='stack',
+        title=f"Unitigs mapped to {assembly_type} reference",
+        xaxis_title="Position on scaffold (Mb)",
+        yaxis_title="Unitig count",
+        legend_title="Comparison",
+        showlegend=True
+    )
+    
+    if assembly_type.startswith('A'):
+        fig.update_xaxes(range=[0, 1.55])
+        fig.update_yaxes(range=[0, 40000])
+    else:
+        fig.update_xaxes(range=[3.496, 3.78])
+        fig.update_yaxes(range=[0, 4500])
     
     return fig
 
@@ -87,25 +135,19 @@ def plot_read_depth():
     return fig
 
 # Main execution
-def main(blast_file):
+def main(input_folder, assembly_type):
     # Create docs directory if it doesn't exist
     os.makedirs("docs", exist_ok=True)
     
-    # Extract information from the blast file path
-    path_parts = blast_file.split('/')
-    filter_params = path_parts[1]
-    assembly_type = path_parts[2].split('_')[1]
-    comparison = path_parts[3].split('_')[2].split('.')[0]
-    
     # Fig. 3a
-    fig_3a = plot_unitigs(blast_file, assembly_type, comparison)
-    output_file_3a = f"docs/fig_3a_{filter_params}_{assembly_type}_{comparison}.html"
+    fig_3a = plot_unitigs(input_folder, assembly_type)
+    output_file_3a = f"docs/fig_3a_{assembly_type}_unitigs.html"
     fig_3a.write_html(output_file_3a)
     print(f"Figure 3a has been generated and saved as {output_file_3a}")
     
     # Fig. 3c
     fig_3c = plot_read_depth()
-    output_file_3c = f"docs/fig_3c_{filter_params}_{assembly_type}_{comparison}.html"
+    output_file_3c = f"docs/fig_3c_{assembly_type}_read_depth.html"
     fig_3c.write_html(output_file_3c)
     print(f"Figure 3c has been generated and saved as {output_file_3c}")
     
@@ -113,7 +155,8 @@ def main(blast_file):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate plots for unitig mapping and read depth coverage.")
-    parser.add_argument("blast_file", help="Path to the BLAST-like output file")
+    parser.add_argument("input_folder", help="Path to the folder containing BLAST output files")
+    parser.add_argument("assembly_type", choices=['A', 'I'], help="Assembly type (A or I)")
     args = parser.parse_args()
 
-    main(args.blast_file)
+    main(args.input_folder, args.assembly_type)
