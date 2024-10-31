@@ -10,6 +10,25 @@ usage() {
     exit 1
 }
 
+# Progress bar function
+progress_bar() {
+    local duration=$1
+    local elapsed=0
+    local progress=0
+    local bar_size=40
+
+    while [ $elapsed -lt $duration ] && kill -0 $BLAST_PID 2>/dev/null; do
+        local filled=$(printf "#%.0s" $(seq 1 $progress))
+        local empty=$(printf " %.0s" $(seq $progress $bar_size))
+        printf "\rProgress: [%s%s] %d%%" "$filled" "$empty" "$((progress*100/bar_size))"
+        sleep 1
+        elapsed=$((elapsed+1))
+        progress=$((elapsed*bar_size/duration))
+    done
+    printf "\rProgress: [%s] 100%%\n" "$(printf "#%.0s" $(seq 1 $bar_size))"
+    echo "Done!"
+}
+
 # Parse command line arguments
 while getopts "r:q:o:t:" opt; do
     case $opt in
@@ -49,9 +68,11 @@ if [[ "$QUERY" == *.gz ]]; then
 fi
 
 # Create BLAST database from the reference
+echo "Creating BLAST database..."
 makeblastdb -in "$REFERENCE" -dbtype nucl
 
-# Run BLAST
+# Run BLAST with progress bar
+echo "Running BLAST..."
 blastn -task blastn-short \
     -query "$QUERY" \
     -db "$REFERENCE" \
@@ -59,9 +80,17 @@ blastn -task blastn-short \
     -out "${OUTPUT_PREFIX}.tsv" \
     -outfmt 6 \
     -max_target_seqs 5 \
-    -num_threads "$THREADS"
+    -num_threads "$THREADS" &
+
+BLAST_PID=$!
+# Estimate duration based on file size (adjust as needed)
+DURATION=$(($(stat -c%s "$QUERY")/1000000))
+progress_bar $DURATION &
+
+wait $BLAST_PID
 
 # Filter results
+echo "Filtering results..."
 awk -F"\t" '{if ($3 >99 && $4 >30 ) print $0,$2,$9}' "${OUTPUT_PREFIX}.tsv" > "${OUTPUT_PREFIX}_filtered.tsv"
 
 # Clean up
