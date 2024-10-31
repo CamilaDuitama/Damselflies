@@ -111,8 +111,8 @@ def plot_read_depth():
     colors = px.colors.qualitative.Set1[:3]
     
     for i, morph in enumerate(["A", "I", "O"]):
-        cov_morph = cov[(cov["contig"] == "SUPER_13_unloc_2_RagTag") & (cov["morph"] == morph)]
-        ncov_morph = ncov[(ncov["contig"] == "SUPER_13_unloc_2_RagTag") & (ncov["morph"] == morph)]
+        cov_morph = cov[(cov["contig"] == "1776_1") & (cov["morph"] == morph)]
+        ncov_morph = ncov[(ncov["contig"] == "1776_1") & (ncov["morph"] == morph)]
         
         fig.add_trace(
             go.Scatter(x=(cov_morph["midpoint"].max() - cov_morph["midpoint"])/1000000, y=cov_morph["relcov"],
