@@ -148,12 +148,15 @@ Notebooks/kruskal_wallis_results_pa_matrix.csv filter=lfs diff=lfs merge=lfs -te
 Notebooks/kruskal_wallis_results_pa_matrix_updated.csv filter=lfs diff=lfs merge=lfs -text
 Notebooks/pa_unitig_matrix_02_filtered_row_statistics.csv filter=lfs diff=lfs merge=lfs -text
 Notebooks/pca_result_unitigs_pa_centered.csv filter=lfs diff=lfs merge=lfs -text
+ref_genome/Amorph_assembly/Afem_1354_ragtag.fasta filter=lfs diff=lfs merge=lfs -text
 ref_genome/Amorph_assembly/Afem_1354_ragtag.fasta.gz filter=lfs diff=lfs merge=lfs -text
+ref_genome/Amorph_assembly/Afem_1354_ragtag.fasta.nsq filter=lfs diff=lfs merge=lfs -text
 ref_genome/haplotype_A/ncbi_dataset/data/GCA_921293115.1/GCA_921293115.1_ioIscEleg1.1_alternate_haplotype_genomic.fna filter=lfs diff=lfs merge=lfs -text
 ref_genome/haplotype_A/ncbi_dataset.zip filter=lfs diff=lfs merge=lfs -text
 ref_genome/haplotype_O_DToL/ncbi_dataset/data/GCF_921293095.1/GCF_921293095.1_ioIscEleg1.1_genomic.fna filter=lfs diff=lfs merge=lfs -text
 ref_genome/haplotype_O_DToL/ncbi_dataset.zip filter=lfs diff=lfs merge=lfs -text
 ref_genome/Imorph_assembly/Ifem_1049_ragtag.fa.gz filter=lfs diff=lfs merge=lfs -text
+ref_genome/Imorph_assembly/Ifem_1049_ragtag.fa.nsq filter=lfs diff=lfs merge=lfs -text
 unitig_matrix_abundance/A.mat filter=lfs diff=lfs merge=lfs -text
 unitig_matrix_abundance/filtered_matrix.txt filter=lfs diff=lfs merge=lfs -text
 unitig_matrix_abundance/f.mat filter=lfs diff=lfs merge=lfs -text
