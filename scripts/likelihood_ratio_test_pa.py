@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 import dask.dataframe as dd
 from dask.distributed import Client, LocalCluster
-from scipy.stats import bernoulli, binomtest, kruskal, false_discovery_control, chi2_contingency
+from scipy.stats import bernoulli, binomtest, kruskal, false_discovery_control, chi2, chi2_contingency, norm, poisson
 import numpy as np
 from scipy import stats
 from collections import defaultdict
@@ -16,6 +16,15 @@ METADATA_FILE = "/pasteur/appa/scratch/cduitama/Damselflies/metadata/Damselflies
 COLUMN_NAMES_FILE = "/pasteur/appa/scratch/cduitama/Damselflies/metadata/fof_filtered_pa.txt"
 
 def setup_logging(output_dir):
+    """
+    Set up logging configuration.
+
+    Args:
+    output_dir (str): Directory to save the log file.
+
+    Returns:
+    str: Path to the created log file.
+    """
     log_filename = f"run_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     log_path = os.path.join(output_dir, log_filename)
     
@@ -92,11 +101,7 @@ def compute_chi_square_test(row, groups):
     group_data = {group: row[samples].dropna().values for group, samples in groups.items() if all(sample in row.index for sample in samples)}
   
     # Check if we have data for both groups
-    if len(group_data) < 2:
-        return pd.Series({'chi2_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
-
-    # Check if both groups have data
-    if not all(len(data) > 0 for data in group_data.values()):
+    if len(group_data) < 2 or not all(len(data) > 0 for data in group_data.values()):
         return pd.Series({'chi2_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
 
     # Prepare contingency table with Yates' correction
@@ -123,7 +128,6 @@ def compute_chi_square_test(row, groups):
         return pd.Series({'chi2_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
 
     return pd.Series({'chi2_statistic': chi2_statistic, 'p_value': p_value, 'effect_size': effect_size})
-
 
 def compute_likelihood_ratio_test_bernoulli(row, groups):
     """
@@ -196,11 +200,7 @@ def compute_kruskal_wallis_test(row, groups):
     group_data = {group: row[samples].dropna().values for group, samples in groups.items() if all(sample in row.index for sample in samples)}
   
     # Check if we have at least two groups with data
-    if len(group_data) < 2:
-        return pd.Series({'h_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
-
-    # Check if all groups have data
-    if not all(len(data) > 0 for data in group_data.values()):
+    if len(group_data) < 2 or not all(len(data) > 0 for data in group_data.values()):
         return pd.Series({'h_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
 
     # Prepare data for Kruskal-Wallis test
@@ -224,50 +224,79 @@ def compute_kruskal_wallis_test(row, groups):
 
     return pd.Series({'h_statistic': h_statistic, 'p_value': p_value, 'effect_size': effect_size})
 
+def compute_likelihood_ratio_test_poisson(row, groups):
+    """
+    Compute Poisson Likelihood Ratio Test for a given row of count data.
+
+    Args:
+        row (pandas.Series): A row of count data from a DataFrame.
+        groups (dict): A dictionary mapping group names to the corresponding column indices.
+
+    Returns:
+        pandas.Series: A series containing the LRT statistic, p-value and effect size.
+                       Returns NaN for all values if the test cannot be performed.
+    """
+    group_data = {group: row[samples].dropna().values for group, samples in groups.items() if all(sample in row.index for sample in samples)}
+  
+    if len(group_data) < 2 or not all(len(data) > 0 for data in group_data.values()):
+        logging.info("Insufficient data for Poisson LRT.")
+        return pd.Series({'lr_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
+
+    all_data = np.concatenate(list(group_data.values()))
+    
+    # Calculate pooled counts
+    K1, K2 = [np.sum(data) for data in group_data.values()]
+    N1, N2 = [len(data) for data in group_data.values()]
+
+    # Maximum likelihood estimates with small epsilon to avoid divide by zero
+    epsilon = 1e-10
+    theta_hat_1 = max(K1 / N1, epsilon)
+    theta_hat_2 = max(K2 / N2, epsilon)
+    theta_hat = max((K1 + K2) / (N1 + N2), epsilon)
+
+    # Log-likelihoods
+    ll_alt = (K1 * np.log(theta_hat_1) - theta_hat_1 * N1 +
+              K2 * np.log(theta_hat_2) - theta_hat_2 * N2)
+    ll_null = ((K1 + K2) * np.log(theta_hat) - theta_hat * (N1 + N2))
+
+    # Likelihood ratio statistic
+    lr_statistic = 2 * (ll_alt - ll_null)
+
+    # Check if lr_statistic is valid
+    if np.isnan(lr_statistic) or lr_statistic < 0:
+        if lr_statistic < -1e-10:  # Allow for small negative values due to floating point errors
+            logging.info(f"Invalid LR statistic: {lr_statistic}")
+            return pd.Series({'lr_statistic': np.nan, 'p_value': np.nan, 'effect_size': np.nan})
+        else:
+            lr_statistic = 0  # Set very small negative values to zero
+
+    # P-value (using chi-square distribution with 1 degree of freedom)
+    p_value = 1 - chi2.cdf(lr_statistic, df=1)
+    
+    # Effect size (log ratio of rates)
+    if theta_hat_1 == 0 or theta_hat_2 == 0:
+        effect_size = np.nan
+    else:
+        effect_size = np.log(theta_hat_1 / theta_hat_2)
+
+    return pd.Series({'lr_statistic': lr_statistic, 'p_value': p_value, 'effect_size': effect_size})
+
 def perform_analysis(df, morph_groups, comparison, test_type, binarization_threshold=0):
     """
     Perform statistical analysis on the given dataframe using the specified test type.
 
-    This function conducts either a Likelihood Ratio Test (LRT) or a Kruskal-Wallis test
-    on the data, depending on the specified test_type. It first binarizes the data based
-    on the given threshold, then applies the chosen statistical test to each row of the
-    dataframe. Finally, it performs a Benjamini-Hochberg correction on the resulting p-values.
-
-    Parameters:
-    -----------
-    df : dask.dataframe.DataFrame
-        The input dataframe containing the unitig data.
-    morph_groups : dict
-        A dictionary mapping morph types to lists of sample names.
-    comparison : str
-        The type of comparison to perform, either 'Group1vsGroup2' or 'overall'.
-    test_type : str
-        The type of statistical test to perform, either 'lrt' for Likelihood Ratio Test
-        or 'kw' for Kruskal-Wallis test.
-    binarization_threshold : float, optional
-        The threshold for binarizing the data. Values greater than this will be set to 1,
-        otherwise 0. Default is 0.
+    Args:
+    df (dask.dataframe.DataFrame): The input dataframe containing the unitig data.
+    morph_groups (dict): A dictionary mapping morph types to lists of sample names.
+    comparison (str): The type of comparison to perform, either 'Group1vsGroup2' or 'overall'.
+    test_type (str): The type of statistical test to perform ('poisson', 'bernoulli', 'kw', or 'chi2').
+    binarization_threshold (float, optional): The threshold for binarizing the data. Used only for
+                                              'bernoulli', 'kw', and 'chi2' tests. Default is 0.
 
     Returns:
-    --------
-    pandas.DataFrame or None
-        A dataframe containing the results of the statistical tests, including test
-        statistics, p-values, effect sizes, and adjusted p-values. Returns None if an
-        error occurs during the analysis.
-
-    Notes:
-    ------
-    - The function first filters the dataframe based on the specified comparison.
-    - It then binarizes the data using the provided threshold.
-    - The chosen statistical test (LRT or Kruskal-Wallis) is applied to each row of the binarized data.
-    - Benjamini-Hochberg correction is applied to the resulting p-values to account for multiple testing.
-    - The function logs various statistics about the analysis, including the number of
-      tests performed, the number of valid tests, and the number of significant results.
-
-    Raises:
-    -------
-    ValueError
-        If an invalid test type is specified.
+    pandas.DataFrame or None: A dataframe containing the results of the statistical tests, including test
+                              statistics, p-values, effect sizes, and adjusted p-values. Returns None if an
+                              error occurs during the analysis.
     """
     if comparison != 'overall':
         desired_groups = [group.strip() for group in comparison.split('vs')]
@@ -282,34 +311,44 @@ def perform_analysis(df, morph_groups, comparison, test_type, binarization_thres
     if 'Unitigs_id' in relevant_columns: relevant_columns.remove('Unitigs_id')
 
     df_slice = df[relevant_columns]
-    df_binarized = (df_slice > binarization_threshold).astype(int)
-    logging.info("Dataframe was sliced and binarized.")
-    logging.info(f"Binarized data sample:\n{df_binarized.head()}")
-
+    
     try:
-        if test_type == 'lrt':
+        if test_type == 'poisson':
             meta = pd.Series({
                 'lr_statistic': np.float64,
                 'p_value': np.float64,
                 'effect_size': np.float64
             }, index=['lr_statistic', 'p_value', 'effect_size'])
-            results = df_binarized.apply(lambda row: compute_likelihood_ratio_test_bernoulli(row, groups), axis=1, meta=meta)
-        elif test_type == 'kw':
-            meta = pd.Series({
-                'h_statistic': np.float64,
-                'p_value': np.float64,
-                'effect_size': np.float64
-            }, index=['h_statistic', 'p_value', 'effect_size'])
-            results = df_binarized.apply(lambda row: compute_kruskal_wallis_test(row, groups), axis=1, meta=meta)
-        elif test_type == 'chi2':
-            meta = pd.Series({
-                'chi2_statistic': np.float64,
-                'p_value': np.float64,
-                'effect_size': np.float64
-            }, index=['chi2_statistic', 'p_value', 'effect_size'])
-            results = df_binarized.apply(lambda row: compute_chi_square_test(row, groups), axis=1, meta=meta)
+            results = df_slice.apply(lambda row: compute_likelihood_ratio_test_poisson(row, groups), axis=1, meta=meta)
         else:
-            raise ValueError("Invalid test type specified.")
+            # Binarize data for non-Poisson tests
+            df_binarized = (df_slice > binarization_threshold).astype(int)
+            logging.info("Data was binarized for non-Poisson test.")
+            logging.info(f"Binarized data sample:\n{df_binarized.head()}")
+            
+            if test_type == 'kw':
+                meta = pd.Series({
+                    'h_statistic': np.float64,
+                    'p_value': np.float64,
+                    'effect_size': np.float64
+                }, index=['h_statistic', 'p_value', 'effect_size'])
+                results = df_binarized.apply(lambda row: compute_kruskal_wallis_test(row, groups), axis=1, meta=meta)
+            elif test_type == 'chi2':
+                meta = pd.Series({
+                    'chi2_statistic': np.float64,
+                    'p_value': np.float64,
+                    'effect_size': np.float64
+                }, index=['chi2_statistic', 'p_value', 'effect_size'])
+                results = df_binarized.apply(lambda row: compute_chi_square_test(row, groups), axis=1, meta=meta)
+            elif test_type == 'bernoulli':
+                meta = pd.Series({
+                    'lr_statistic': np.float64,
+                    'p_value': np.float64,
+                    'effect_size': np.float64
+                }, index=['lr_statistic', 'p_value', 'effect_size'])
+                results = df_binarized.apply(lambda row: compute_likelihood_ratio_test_bernoulli(row, groups), axis=1, meta=meta)
+            else:
+                raise ValueError("Invalid test type specified.")
     except Exception as e:
         logging.error(f"Error during analysis: {e}")
         return None
@@ -319,7 +358,8 @@ def perform_analysis(df, morph_groups, comparison, test_type, binarization_thres
     
     if valid_rows.sum() > 0:
         valid_p_values = results_df.loc[valid_rows, 'p_value']
-        adjusted_p_values = false_discovery_control(valid_p_values, method='bh')
+        # Bonferroni correction
+        adjusted_p_values = np.minimum(valid_p_values * valid_rows.sum(), 1.0)
         results_df['adjusted_p_value'] = np.nan
         results_df.loc[valid_rows, 'adjusted_p_value'] = adjusted_p_values
     else:
@@ -342,12 +382,45 @@ def perform_analysis(df, morph_groups, comparison, test_type, binarization_thres
     return results_df
 
 def check_columns(file_path):
-    # Read only a small sample of the CSV to get the columns and dtypes
+    """
+    Check the number of columns in a CSV file.
+
+    Args:
+    file_path (str): Path to the CSV file.
+
+    Returns:
+    tuple: Number of columns and actual column names.
+    """
     small_df = dd.read_csv(file_path, sample=1000000)  # only sample 1 MB of data
     actual_columns = small_df.columns
     num_columns = len(actual_columns)
     logging.info(f"Sample data check: The CSV file appears to have {num_columns} columns.")
     return num_columns, actual_columns
+
+def check_file_format(file_path):
+    """
+    Check the format of the input file.
+
+    Args:
+    file_path (str): Path to the input file.
+
+    Returns:
+    tuple: (is_binary, num_columns, has_header)
+    """
+    with open(file_path, 'r') as f:
+        first_line = f.readline().strip()
+        second_line = f.readline().strip()
+
+    # Check if the first line contains column names
+    has_header = not first_line.split()[0].replace('.', '').isdigit()
+
+    # Check if the data is binary (0s and 1s only)
+    is_binary = all(val in ['0', '1'] for val in second_line.split()[1:])
+
+    num_columns = len(first_line.split())
+
+    logging.info(f"File format: Binary: {is_binary}, Columns: {num_columns}, Has Header: {has_header}")
+    return is_binary, num_columns, has_header
 
 def main(args):
     """
@@ -372,27 +445,51 @@ def main(args):
     metadata = load_metadata(METADATA_FILE)
     morph_groups = map_runs_to_morph(metadata)
 
+    # Load column names from the file
     with open(COLUMN_NAMES_FILE, 'r') as f:
         column_names = [line.strip() for line in f]
     column_names = [name.replace("data/unitigs/", "").replace(".unitigs.fa.gz", "") for name in column_names]
-    
-    if column_names[0] != 'Unitigs_id':
+
+    # Ensure 'Unitigs_id' is the first column, but only if it's not already there
+    if 'Unitigs_id' not in column_names:
         column_names.insert(0, 'Unitigs_id')
-    logging.info("Column names prepared.")
-    
-    num_columns, actual_columns = check_columns(args.unitig_matrix)
+    elif column_names[0] != 'Unitigs_id':
+        column_names.remove('Unitigs_id')
+        column_names.insert(0, 'Unitigs_id')
 
-    logging.info(f"File {args.unitig_matrix} detected to have {num_columns} columns.")
-    logging.info(f"Prepared {len(column_names)} column names from the provided names file.")
+    logging.info(f"Loaded {len(column_names)} column names from {COLUMN_NAMES_FILE}")
 
-    if len(column_names) != num_columns:
-        raise ValueError("Mismatch between the number of prepared column names and the number of columns detected in the file.")
-    
-    dtype_dict = {col: float for col in column_names if col != "Unitigs_id"}
-    dtype_dict['Unitigs_id'] = str 
-    df = dd.read_csv(args.unitig_matrix, header=None, skiprows=1, dtype=dtype_dict,names=column_names)
+    # Check the format of the input file
+    is_binary, num_columns, has_header = check_file_format(args.unitig_matrix)
+
+    if is_binary:
+        # For binary data
+        dtype_dict = {col: float for col in column_names}  # Use float to handle values like 0.94
+        dtype_dict['Unitigs_id'] = str
+
+        df = dd.read_csv(args.unitig_matrix, 
+                        dtype=dtype_dict,
+                        sep=',')  # CSV format
+        
+        logging.info("Binary data detected. Read as CSV.")
+    else:
+        # For non-binary data
+        dtype_dict = {col: float for col in column_names if col != "Unitigs_id"}
+        dtype_dict['Unitigs_id'] = str
+
+        df = dd.read_csv(args.unitig_matrix, 
+                        names=column_names,
+                        dtype=dtype_dict,
+                        sep='\s+',  # Whitespace-separated
+                        header=None)
+        
+        logging.info("Non-binary data detected. Read as whitespace-separated.")
+
     logging.info("Unitig data loaded into Dask DataFrame.")
+    logging.info(f"DataFrame columns: {df.columns}")
+    logging.info(f"DataFrame sample:\n{df.head()}")
 
+    # Perform the analysis
     results = perform_analysis(df, morph_groups, args.comparison, args.test_type, args.bin_thresh)
 
     if results is not None:
@@ -406,6 +503,7 @@ def main(args):
             logging.error(f"Failed to save results: {e}")
     else:
         logging.warning("No results were generated.")
+
     client.close()
     logging.info("Dask client closed. Script completed.")
 
@@ -417,10 +515,10 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--comparison", required=True,
                     help="Type of comparison to perform, formatted as 'Group1vsGroup2' (e.g., 'AvsB') or 'overall'")
     parser.add_argument("-o", "--output_dir", required=True, help="Output directory to save the results")
-    parser.add_argument("--test_type", choices=['lrt', 'kw', 'chi2'], default='lrt',
-                        help="Type of statistical test to perform. 'lrt' for Likelihood Ratio Test, 'kw' for Kruskal-Wallis test, 'chi2' for Chi-square test")
+    parser.add_argument("--test_type", choices=['poisson', 'kw', 'chi2', 'bernoulli'], default='poisson',
+                        help="Type of statistical test to perform. 'poisson' for Poisson LRT, 'kw' for Kruskal-Wallis test, 'chi2' for Chi-square test, 'bernoulli' for Bernoulli LRT")
     parser.add_argument("--bin_thresh", type=float, default=0,
-                        help="Threshold for binarization (between 0 and 1). Values greater than this will be set to 1, else 0. Default is 0.")
+                        help="Threshold for binarization (between 0 and 1). Used for KW, Chi-squared, and Bernoulli tests. Values greater than this will be set to 1, else 0. Default is 0.")
     args = parser.parse_args()
     
     # Validate binarization threshold

@@ -177,10 +177,15 @@ data/unitigs/SRR24222868.unitigs.fa.gz
 ./docs/adjusted_p_values_analysis_pa.html
 docs/violinplots_row_stats_pa.html
 filtered_matrices/*
+filtered_matrices/0.1/A.mat
+filtered_matrices/0.1/f.mat
 ./filtered_matrices/0.1/unitigs.filter.0.1.csv
 filtered_matrices/0.1/unitigs.filter.0.1.csv
+filtered_matrices/0.1/unitigs.filter.abundance.0.1.csv
 ./filtered_matrices/0.2/abundance_unitig_matrix_02_filtered_row_statistics.csv
 filtered_matrices/0.2/abundance_unitig_matrix_02_filtered_row_statistics.csv
+filtered_matrices/0.2/A.mat
+filtered_matrices/0.2/f.mat
 ./filtered_matrices/0.2/kruskal_wallis/kruskal_wallis_results_abundance_matrix.csv
 filtered_matrices/0.2/kruskal_wallis/kruskal_wallis_results_abundance_matrix.csv
 ./filtered_matrices/0.2/kruskal_wallis/kruskal_wallis_results_abundance_matrix_updated.csv
@@ -193,6 +198,8 @@ filtered_matrices/0.2/kruskal_wallis/kruskal_wallis_results_pa_matrix_updated.cs
 filtered_matrices/0.2/pa_unitig_matrix_02_filtered_row_statistics.csv
 ./filtered_matrices/0.2/unitigs.filter.02.csv
 filtered_matrices/0.2/unitigs.filter.02.csv
+filtered_matrices/0.2/unitigs.filter.abundance.02.csv
+filtered_matrices/0.2/unitigs.filter.pa.02.csv
 ./.git/lfs/objects/02/91/0291a9b73364626f8c7fbf5198bc3f66a0a8c700b7db49b37885af91a1f36e42
 ./.git/lfs/objects/43/a3/43a34904cb6ac10ed21b7930422bc718f3516d9fc77e9aeda53abdc531588bac
 ./.git/lfs/objects/8b/bb/8bbb737024f65735e4fed5bcb3d4457fb7c6842627ff2ab4ed1dedc92b182b2f
